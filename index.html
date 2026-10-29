@@ -239,13 +239,20 @@ const SK={Physics:'p',Chemistry:'c',Maths:'m'};
 const GRPS=[['Physics','Physics'],['Physical Chemistry','Chemistry'],['Organic Chemistry','Chemistry'],['Inorganic Chemistry','Chemistry'],['Mathematics','Maths']];
 const LS='mi28_v1';
 const DEFKEY='';
+const PROXY_URL='https://curly-brook-fba4.samarth8845.workers.dev';
+(function(){const G='https://generativelanguage.googleapis.com',f=window.fetch.bind(window);
+window.fetch=function(u,o){try{const url=typeof u==='string'?u:(u&&u.url)||'';
+if(PROXY_URL&&url.indexOf(G+'/')===0&&D&&D.prof&&D.prof.key==='__proxy__'){
+let nu=PROXY_URL.replace(/\/$/,'')+url.slice(G.length);nu=nu.replace(/([?&])key=[^&]*&?/,'$1').replace(/[?&]$/,'');
+const h=new Headers((o&&o.headers)||{});h.delete('x-goog-api-key');return f(nu,Object.assign({},o||{},{headers:h}))}}catch(e){}
+return f(u,o)}})();
 
 /* ============ data ============ */
 const DEF=()=>({prof:{name:'Samarth',aim:'IIT Bombay CSE',date:'2028-01-02',sub:'Small progress every day. Big result in 2028.',theme:'bw',sound:true,reduce:false,target:6,pf:25,ps:5,pl:15,key:'',model:'gemini-3.5-flash',lang:'Hinglish'},
  tasks:[],prog:{},chaps:[],v2:1,dpps:[],mocks:[],backlog:[],revs:[],errors:[],theory:[],tests:[],reports:[],tutor:[],pomo:[],notified:{}});
 let D;
 try{const b=JSON.parse(localStorage.getItem(LS)||'null'),a=window.__IDB;D=(a&&(!b||(a._ts||0)>=(b._ts||0)))?a:b}catch(e){D=window.__IDB||null}
-{const d=DEF();D=Object.assign(d,D||{});D.prof=Object.assign(DEF().prof,D.prof||{});if(!D.prof.key)D.prof.key=DEFKEY;if(/^gemini-2\./.test(D.prof.model||''))D.prof.model='gemini-3.5-flash'}
+{const d=DEF();D=Object.assign(d,D||{});D.prof=Object.assign(DEF().prof,D.prof||{});if(!D.prof.key)D.prof.key=DEFKEY||(PROXY_URL?'__proxy__':'');;if(/^gemini-2\./.test(D.prof.model||''))D.prof.model='gemini-3.5-flash'}
 let _sv=0,_sbusy=false,_sagain=false;
 function save(){clearTimeout(_sv);_sv=setTimeout(persist,350)}
 async function persist(){clearTimeout(_sv);if(_sbusy){_sagain=true;return}_sbusy=true;
