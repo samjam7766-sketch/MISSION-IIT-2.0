@@ -239,6 +239,7 @@ const SK={Physics:'p',Chemistry:'c',Maths:'m'};
 const GRPS=[['Physics','Physics'],['Physical Chemistry','Chemistry'],['Organic Chemistry','Chemistry'],['Inorganic Chemistry','Chemistry'],['Mathematics','Maths']];
 const LS='mi28_v1';
 const DEFKEY='';
+/* Default AI access without exposing any key: calls go through a private proxy (Cloudflare Worker) that holds the key. Leave PROXY_URL empty to disable. */
 const PROXY_URL='https://curly-brook-fba4.samarth8845.workers.dev';
 (function(){const G='https://generativelanguage.googleapis.com',f=window.fetch.bind(window);
 window.fetch=function(u,o){try{const url=typeof u==='string'?u:(u&&u.url)||'';
@@ -252,7 +253,7 @@ const DEF=()=>({prof:{name:'Samarth',aim:'IIT Bombay CSE',date:'2028-01-02',sub:
  tasks:[],prog:{},chaps:[],v2:1,dpps:[],mocks:[],backlog:[],revs:[],errors:[],theory:[],tests:[],reports:[],tutor:[],pomo:[],notified:{}});
 let D;
 try{const b=JSON.parse(localStorage.getItem(LS)||'null'),a=window.__IDB;D=(a&&(!b||(a._ts||0)>=(b._ts||0)))?a:b}catch(e){D=window.__IDB||null}
-{const d=DEF();D=Object.assign(d,D||{});D.prof=Object.assign(DEF().prof,D.prof||{});if(!D.prof.key)D.prof.key=DEFKEY||(PROXY_URL?'__proxy__':'');;if(/^gemini-2\./.test(D.prof.model||''))D.prof.model='gemini-3.5-flash'}
+{const d=DEF();D=Object.assign(d,D||{});D.prof=Object.assign(DEF().prof,D.prof||{});if(!D.prof.key)D.prof.key=DEFKEY||(PROXY_URL?'__proxy__':'');try{const mk=location.hash.match(/[#&]k=([^&]+)/);if(mk){D.prof.key=decodeURIComponent(mk[1]);history.replaceState(null,'',location.pathname+location.search);setTimeout(()=>{try{save()}catch(e){}},1500)}}catch(e){}if(/^gemini-2\./.test(D.prof.model||''))D.prof.model='gemini-3.5-flash'}
 let _sv=0,_sbusy=false,_sagain=false;
 function save(){clearTimeout(_sv);_sv=setTimeout(persist,350)}
 async function persist(){clearTimeout(_sv);if(_sbusy){_sagain=true;return}_sbusy=true;
@@ -399,7 +400,7 @@ async function aiGen(contents,{sys,json,signal,max,timeout,think}={}){
       try{const ej=await r.json();msg=(ej.error&&ej.error.message)||'';const det=(ej.error&&ej.error.details)||[];const ri=det.find(d=>d.retryDelay);if(ri)delay=parseFloat(ri.retryDelay)*1000||0;if(/PerDay|per day|daily/i.test(JSON.stringify(ej)))quotaDay=true}catch(e){}
       lastErr=String(r.status);lastMsg=msg;
       if(r.status===400&&/thinking/i.test(msg)&&!noThink){noThink=true;continue}
-      if(r.status===401||r.status===403||(r.status===400&&/API key/i.test(msg)))throw new Error('API key rejected. Check the key in Settings → AI provider.');
+      if(r.status===401||r.status===403||(r.status===400&&/API key/i.test(msg)))throw new Error('API key rejected ['+r.status+(D.prof.key==='__proxy__'?' via proxy':'')+(msg?': '+msg.slice(0,140):'')+']. Check the key in Settings → AI provider.');
       if(r.status===404){if(!AIQ.disc){AIQ.disc=1;try{const lr=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200',{headers:{'x-goog-api-key':D.prof.key}}),lj=await lr.json(),nm=(lj.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')).map(m=>m.name.replace('models/','')).filter(n=>/^gemini-\d+(\.\d+)?-flash(-lite)?$/.test(n)).sort((x,y)=>parseFloat(y.split('-')[1])-parseFloat(x.split('-')[1]));nm.forEach(n=>{if(!models.includes(n))models.push(n)})}catch(e){}}mi++;tries=0;continue}
       if(r.status===400)throw new Error('AI rejected the request. '+(msg||'Try a shorter question.'));
       if(r.status===429||r.status===500||r.status===503||r.status===502){
@@ -2027,6 +2028,162 @@ const THC={
   }
 };
 window.THC=THC;
+})();
+</script>
+<script type="text/plain" class="app-src">
+/* ===== Cloud account & sync (Firebase Auth + Firestore). Data is stored per user; only that user can read it. ===== */
+(function(){
+const FB_CONFIG={apiKey:'AIzaSyAIE4j5AmFV1TfBkfEbNZNJXZslheBvRRU',authDomain:'mission-iit-fd055.firebaseapp.com',projectId:'mission-iit-fd055',appId:'1:279343696846:web:c313862c741f8241c7799f'};   /* filled after Firebase setup */
+const FBV='10.12.2',CH=700000,LSK='mi28_cloud';
+const CL=window.CLOUD={user:null,ready:false,busy:false,hold:false,listening:false,msg:'',pend:null};
+const cfgOk=()=>!!(FB_CONFIG.apiKey&&FB_CONFIG.projectId);
+const lm=()=>{try{return JSON.parse(localStorage.getItem(LSK)||'{}')}catch(e){return{}}};
+const setLm=o=>{try{localStorage.setItem(LSK,JSON.stringify(Object.assign(lm(),o)))}catch(e){}};
+const hhmm=t=>new Date(t).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+const when=t=>t?new Date(t).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
+const mark=m=>{CL.msg=m;const e=document.getElementById('cl_status');if(e)e.textContent=m};
+const hsh=s=>{let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return h};
+const loadJs=src=>new Promise((res,rej)=>{if(document.querySelector('script[src="'+src+'"]'))return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Cloud SDK load nahi hua — internet check karo'));document.head.appendChild(s)});
+async function fb(){
+  if(!cfgOk())throw new Error('Cloud login abhi set up nahi hai');
+  if(!(window.firebase&&window.firebase.firestore&&window.firebase.auth)){
+    const b='https://www.gstatic.com/firebasejs/'+FBV+'/';
+    await loadJs(b+'firebase-app-compat.js');await loadJs(b+'firebase-auth-compat.js');await loadJs(b+'firebase-firestore-compat.js');
+  }
+  if(!firebase.apps.length){firebase.initializeApp(FB_CONFIG);try{firebase.firestore().settings({experimentalAutoDetectLongPolling:true,merge:true})}catch(e){}}
+  return firebase;
+}
+
+/* ---- pack / unpack (gzip → base64 → chunks under Firestore's 1 MB doc limit) ---- */
+const b64=buf=>{const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)};
+const unb64=s=>{const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u};
+async function pack(str){
+  const raw=new TextEncoder().encode(str);
+  if(typeof CompressionStream!=='undefined'){const cs=new CompressionStream('gzip'),w=cs.writable.getWriter();w.write(raw);w.close();return{c:1,b:b64(await new Response(cs.readable).arrayBuffer())}}
+  return{c:0,b:b64(raw)};
+}
+async function unpack(b,c){
+  const u=unb64(b);
+  if(c){const ds=new DecompressionStream('gzip'),w=ds.writable.getWriter();w.write(u);w.close();return new TextDecoder().decode(await new Response(ds.readable).arrayBuffer())}
+  return new TextDecoder().decode(u);
+}
+const ser=()=>JSON.stringify(D,function(k,v){if(this===D.prof&&k==='key')return undefined;if(k==='_ts')return undefined;return v});
+const has=()=>!!((D.tasks||[]).length||(D.mocks||[]).length||(D.errors||[]).length||(D.tutor||[]).length||(D.tests||[]).length||(D.dpps||[]).length||Object.keys(D.prog||{}).length);
+const summ=o=>`${(o.tasks||[]).length} tasks · ${(o.mocks||[]).length} mocks · ${(o.errors||[]).length} errors · ${(o.tests||[]).length} tests · ${(o.tutor||[]).length} doubts`;
+const col=f=>f.firestore().collection('users').doc(CL.user.uid).collection('backup');
+
+/* ---- push / pull ---- */
+async function push(){
+  const f=await fb();if(!CL.user||CL.busy)return;CL.busy=true;mark('Syncing…');
+  try{
+    await persist();
+    const str=ser(),{c,b}=await pack(str),parts=[];
+    for(let i=0;i<b.length;i+=CH)parts.push(b.slice(i,i+CH));
+    const db=f.firestore(),cl=col(f),mref=cl.doc('meta'),old=await mref.get(),og=old.exists?old.data():null,gen=Date.now().toString(36);
+    for(let i=0;i<parts.length;i+=4){const bt=db.batch();parts.slice(i,i+4).forEach((p,j)=>bt.set(cl.doc('g'+gen+'_'+(i+j)),{d:p}));await bt.commit()}
+    await mref.set({gen,n:parts.length,c,ts:D._ts||Date.now(),at:Date.now(),size:str.length});
+    if(og&&og.gen&&og.n){const bt=db.batch();for(let j=0;j<og.n;j++)bt.delete(cl.doc('g'+og.gen+'_'+j));await bt.commit().catch(()=>{})}
+    setLm({uid:CL.user.uid,gen,hash:hsh(str),lastAt:Date.now(),signedIn:true});mark('Synced ✓ '+hhmm(Date.now()));
+  }finally{CL.busy=false}
+}
+async function pull(){
+  const f=await fb(),cl=col(f),m=await cl.doc('meta').get();if(!m.exists)return null;const md=m.data();
+  const snaps=await Promise.all(Array.from({length:md.n},(_,i)=>cl.doc('g'+md.gen+'_'+i).get()));
+  if(snaps.some(s=>!s.exists))throw new Error('Cloud backup adhoora hai — dobara try karo');
+  const obj=JSON.parse(await unpack(snaps.map(s=>s.data().d).join(''),md.c));
+  return{obj,meta:md};
+}
+async function applyCloud(res){
+  const key=D.prof.key;
+  Object.keys(D).forEach(k=>delete D[k]);Object.assign(D,res.obj);
+  D.prof=Object.assign({},D.prof||{});D.prof.key=key;D._ts=Date.now();
+  await persist();
+  setLm({uid:CL.user.uid,gen:res.meta.gen,rehash:1,lastAt:Date.now(),signedIn:true});
+  toast('☁️ Cloud data load ho gaya — reload…');setTimeout(()=>location.reload(),700);
+}
+
+/* ---- decide what to do when logged in ---- */
+async function reconcile(manual){
+  const f=await fb();if(!CL.user)return;mark('Checking cloud…');
+  let l=lm();if(l.rehash){setLm({hash:hsh(ser()),rehash:0});l=lm()}
+  const ms=await col(f).doc('meta').get(),meta=ms.exists?ms.data():null,same=l.uid===CL.user.uid&&!!l.gen,dirty=hsh(ser())!==l.hash;
+  if(!meta){if(has())await push();else{setLm({uid:CL.user.uid,signedIn:true});mark('Cloud khaali hai — data add karoge to apne aap save hoga')}return}
+  if(!same){if(!has()){await applyCloud(await pull());return}await conflict('Is account me pehle se cloud data hai aur is phone me bhi data hai.');return}
+  if(meta.gen!==l.gen){if(!dirty){await applyCloud(await pull());return}await conflict('Cloud me naya data hai, aur is phone par bhi naye changes hain.');return}
+  if(dirty||manual)await push();else mark('Up to date ✓');
+}
+async function conflict(why){
+  const res=await pull();if(!res){await push();return}
+  CL.pend=res;CL.hold=true;mark('Sync ruka hua hai — choose karo');
+  sheet('☁️ Kaunsa data rakhein?',`<div class="sub">${esc(why)}</div>
+  <div class="card mt8"><b>☁️ Cloud</b><div class="sub">Saved ${esc(when(res.meta.at))}</div><div class="sub">${esc(summ(res.obj))}</div><button class="btn blk mt8" data-a="clUseCloud">Cloud wala use karo (is phone ka data replace hoga)</button></div>
+  <div class="card"><b>📱 Is phone ka data</b><div class="sub">${esc(summ(D))}</div><button class="btn sec blk mt8" data-a="clUseDevice">Is phone wala rakho (cloud replace hoga)</button></div>
+  <div class="sub">Pakka nahi ho to pehle Settings se Backup export kar lo.</div>`,{full:true});
+}
+A.clUseCloud=async()=>{closeOv();const r=CL.pend;CL.hold=false;if(r)await applyCloud(r)};
+A.clUseDevice=async()=>{closeOv();CL.hold=false;try{await push();toast('Cloud update ho gaya ✅')}catch(e){mark('Sync fail: '+e.message)}};
+
+/* ---- auto sync ---- */
+let tm=0;
+function touch(){
+  if(!CL.user||!CL.ready||CL.hold)return;clearTimeout(tm);
+  tm=setTimeout(()=>{if(Date.now()-(lm().lastAt||0)<60000){touch();return}autoPush()},30000);
+}
+async function autoPush(){try{if(CL.busy||CL.hold||!CL.user)return;if(hsh(ser())===lm().hash)return;await push()}catch(e){mark('Sync fail: '+e.message)}}
+const _save=save;save=function(){_save.apply(this,arguments);touch()};
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&CL.user&&CL.ready&&!CL.hold){clearTimeout(tm);autoPush()}});
+window.addEventListener('online',()=>{if(CL.user&&CL.ready&&!CL.hold)autoPush()});
+
+/* ---- auth ---- */
+async function boot(){
+  const f=await fb();
+  if(!CL.listening){CL.listening=true;
+    f.auth().onAuthStateChanged(async u=>{
+      CL.user=u;CL.ready=true;
+      if(u){setLm({signedIn:true});try{await reconcile()}catch(e){mark('Sync fail: '+e.message)}}
+      else{mark('')}
+      if(S.screen==='settings'&&!CL.hold)refresh();
+    });
+  }
+  return f;
+}
+const emsg=e=>({'auth/invalid-credential':'Email ya password galat hai','auth/wrong-password':'Password galat hai','auth/user-not-found':'Is email ka account nahi hai','auth/email-already-in-use':'Ye email pehle se registered hai — Sign in karo','auth/weak-password':'Password kam se kam 6 characters ka rakho','auth/invalid-email':'Email sahi nahi hai','auth/missing-password':'Password likho','auth/network-request-failed':'Internet check karo','auth/popup-closed-by-user':'Google window band ho gayi','auth/popup-blocked':'Popup block ho gaya — allow karo','auth/too-many-requests':'Bahut try ho gaye, thodi der baad try karo','auth/unauthorized-domain':'Ye website Firebase ke Authorized domains me add nahi hai','auth/operation-not-allowed':'Ye login method Firebase me on nahi hai'}[e&&e.code]||(e&&e.message)||'Error');
+const out=h=>{const o=$('#cl_o');if(o)o.innerHTML=h};
+async function authDo(fn){
+  out('<span class="spin"></span> Please wait…');
+  try{const f=await boot();await fn(f);closeOv()}catch(e){out('<span style="color:var(--bad)">'+esc(emsg(e))+'</span>')}
+}
+A.clLogin=()=>{
+  if(!cfgOk())return toast('Cloud login abhi set up nahi hai','err');
+  sheet('☁️ Login / Create account',`<div class="sub">Login karne se data cloud me save hota hai — phone badlo ya app delete ho jaye to bhi sab wapas milega.</div>
+  <label class="l">Email</label><input id="cl_e" type="email" autocomplete="email" inputmode="email">
+  <label class="l">Password (min 6)</label><input id="cl_p" type="password" autocomplete="current-password">
+  <div id="cl_o" class="mt8"></div>
+  <div class="row wr mt8" style="gap:8px"><button class="btn" style="flex:1" data-a="clIn">Sign in</button><button class="btn sec" style="flex:1" data-a="clUp">Create account</button></div>
+  <button class="btn sec blk mt8" data-a="clGoogle">Continue with Google</button>
+  <a class="lk" data-a="clForgot" style="display:block;text-align:center;margin-top:12px">Password bhool gaye?</a>`,{full:true});
+};
+A.clIn=()=>authDo(f=>f.auth().signInWithEmailAndPassword($('#cl_e').value.trim(),$('#cl_p').value));
+A.clUp=()=>authDo(f=>f.auth().createUserWithEmailAndPassword($('#cl_e').value.trim(),$('#cl_p').value));
+A.clGoogle=()=>authDo(f=>f.auth().signInWithPopup(new f.auth.GoogleAuthProvider()));
+A.clForgot=async()=>{const e=$('#cl_e').value.trim();if(!e)return out('Pehle email likho');out('<span class="spin"></span> Please wait…');try{const f=await boot();await f.auth().sendPasswordResetEmail(e);out('✅ Reset link email par bhej diya (spam folder bhi dekho)')}catch(x){out('<span style="color:var(--bad)">'+esc(emsg(x))+'</span>')}};
+A.clSync=async()=>{if(!CL.user)return;CL.hold=false;try{await reconcile(true)}catch(e){mark('Sync fail: '+e.message)}};
+A.clRestore=()=>ask('Cloud ka data is phone par load karein? Is phone ka abhi ka data replace ho jayega.','Restore',async()=>{try{const r=await pull();if(!r)return toast('Cloud me koi data nahi hai','err');await applyCloud(r)}catch(e){toast(e.message,'err')}});
+A.clOut=()=>ask('Sign out karein? Is phone ka data yahin rahega, cloud copy bhi safe rahegi.','Sign out',async()=>{try{await autoPush()}catch(e){}try{const f=await fb();await f.auth().signOut()}catch(e){}setLm({signedIn:false});CL.user=null;mark('');refresh()});
+A.clWipe=()=>ask('Cloud se apna saara data hamesha ke liye delete karein? Is phone ka data nahi hatega.','Delete cloud data',async()=>{try{const f=await fb(),cl=col(f),m=await cl.doc('meta').get();if(m.exists){const md=m.data(),bt=f.firestore().batch();for(let i=0;i<md.n;i++)bt.delete(cl.doc('g'+md.gen+'_'+i));bt.delete(cl.doc('meta'));await bt.commit()}setLm({gen:'',hash:0});mark('Cloud data delete ho gaya');toast('Cloud data deleted')}catch(e){toast(e.message,'err')}});
+
+/* ---- Settings card ---- */
+function card(){
+  if(!cfgOk())return`<div class="card"><b>☁️ Cloud account</b><div class="sub mt8">Cloud login abhi set up nahi hai.</div></div>`;
+  const u=CL.user,l=lm();
+  if(!u)return`<div class="card"><b>☁️ Cloud account</b><div class="sub mt8">Login karo — data cloud me safe rahega aur kisi bhi phone par wapas aa jayega.${l.signedIn&&!CL.ready?' <i>(login check ho raha hai…)</i>':''}</div><button class="btn blk mt8" data-a="clLogin">Login / Create account</button></div>`;
+  return`<div class="card"><b>☁️ Cloud account</b><div class="sub mt8" style="overflow-wrap:anywhere">Signed in: <b>${esc(u.email||'Google account')}</b></div><div class="sub" id="cl_status">${esc(CL.msg||(l.lastAt?'Last synced '+when(l.lastAt):'Not synced yet'))}</div><div class="row wr mt8" style="gap:8px"><button class="btn sm" data-a="clSync">↻ Sync now</button><button class="btn sec sm" data-a="clRestore">⬇ Restore from cloud</button><button class="btn sec sm" data-a="clOut">Sign out</button></div><a class="lk" data-a="clWipe" style="display:block;margin-top:10px;font-size:11px;color:var(--bad)">Delete my cloud data</a></div>`;
+}
+const _settings=R.settings;
+R.settings=function(){const h=_settings(),mk='<div class="card"><b>💾 Backup settings</b>';return h.includes(mk)?h.replace(mk,card()+mk):h+card()};
+
+/* ---- start: only load the SDK on launch if this phone was signed in before ---- */
+setTimeout(()=>{if(cfgOk()&&lm().signedIn)boot().catch(()=>{})},2500);
 })();
 </script>
 <script>
