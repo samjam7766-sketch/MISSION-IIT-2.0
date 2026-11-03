@@ -1483,9 +1483,9 @@ const tChatView=()=>{
   const id=U.tChat,all=id?tMsgs(id):[],vis=all.slice(-U.tShow),p=(U.tPend&&U.tPend.chat===id)?U.tPend:null,busy=!!U.tPend,cur=id?tChat(id):null;
   return`${D.prof.key?'':noKey()}<div class="chat">${cur&&all.length?`<div class="sub" style="text-align:center;overflow-wrap:anywhere">${esc(cur.title)}</div>`:''}${all.length>vis.length?`<div style="text-align:center;margin-bottom:8px"><button class="btn sec sm" data-a="tMore">⬆ Show ${Math.min(8,all.length-vis.length)} earlier messages</button></div>`:''}
 ${all.length||p?'':`<div class="empty"><b>👋 Namaste! Main ${AIN} hu</b><p>Apna doubt type karo ya image attach karo. Chat se bahar jaoge to ye chat History me save ho jayegi.</p></div>`}
-${vis.map(tutBub).join('')}
+${vis.map(tutBub).join('')}${window.hintRow?window.hintRow(all,busy):''}
 ${p?`<div class="cm me"><div class="cb">${p.q?rich(p.q):'<i>(image question)</i>'}</div></div><div class="cm ai"><div class="cav">🤖</div><div class="cbw"><div class="cb" id="tOut"><span class="spin"></span> Solving… <a class="lk" data-a="aiCancel">cancel</a></div></div></div>`:'<div id="tOut"></div>'}</div>
-<div class="composer"><div class="row wr" style="gap:6px;margin-bottom:6px"><span id="tImgP">${TIMG?`<img src="${TIMG}" style="height:36px;border-radius:8px;vertical-align:middle"> <a class="lk" data-a="tImgRm">remove</a>`:''}</span>${all.length?'<a class="lk" data-a="tNew" style="font-size:11px;margin-left:auto">＋ New chat</a>':''}</div><div class="row" style="gap:8px;align-items:flex-end"><label class="ib" style="cursor:pointer;flex:none">📷<input type="file" accept="image/*" data-c="tImg" hidden></label><textarea id="tq" rows="1" placeholder="${busy?AIN+' is still answering…':'Ask your doubt…'}" style="flex:1;min-height:42px;max-height:120px" ${busy?'disabled':''}></textarea><button class="btn" id="tAsk" data-a="tutorAsk" style="flex:none" ${busy?'disabled':''}>➤</button></div></div>`;
+<div class="composer"><div class="row wr" style="gap:6px;margin-bottom:6px"><button class="chip ${D.prof.hintMode?'acc':''}" data-a="tHintMode" style="cursor:pointer;border:0">🪜 Hint mode ${D.prof.hintMode?'ON':'OFF'}</button><button class="chip ${D.prof.voiceMode?'acc':''}" data-a="tVoiceMode" style="cursor:pointer;border:0">🎙 Voice mode ${D.prof.voiceMode?'ON':'OFF'}</button><span id="tImgP">${TIMG?`<img src="${TIMG}" style="height:36px;border-radius:8px;vertical-align:middle"> <a class="lk" data-a="tImgRm">remove</a>`:''}</span>${all.length?'<a class="lk" data-a="tNew" style="font-size:11px;margin-left:auto">＋ New chat</a>':''}</div><div class="row" style="gap:8px;align-items:flex-end"><label class="ib" style="cursor:pointer;flex:none" title="Camera">📷<input type="file" accept="image/*" capture="environment" data-c="tImg" hidden></label><label class="ib" style="cursor:pointer;flex:none" title="Gallery">🖼️<input type="file" accept="image/*" data-c="tImg" hidden></label><button class="ib" id="tMic" data-a="tMic" style="flex:none;cursor:pointer" ${busy?'disabled':''}>🎤</button><textarea id="tq" rows="1" placeholder="${busy?AIN+' is still answering…':'Ask your doubt…'}" style="flex:1;min-height:42px;max-height:120px" ${busy?'disabled':''}></textarea><button class="btn" id="tAsk" data-a="tutorAsk" style="flex:none" ${busy?'disabled':''}>➤</button></div></div>`;
 };
 const tHist=()=>{
   const all=tChats(),q=(U.tHq||'').toLowerCase().trim();
@@ -1505,8 +1505,8 @@ I.tHsearch=(d,el)=>{U.tHq=el.value;const pos=el.selectionStart;refresh();const n
 /* leaving Samarth’s AI = chat is already saved in History, next visit starts a fresh chat */
 const _go=go;go=function(s){if(S.screen==='tutor'&&s!=='tutor'){U.tChat=null;U.tt='chat';U.tHq='';U.tShow=8}return _go.apply(this,arguments)};
 const _jo=A.jobOpen;A.jobOpen=d=>{if(d.k==='tutor'&&U.tPend){U.tChat=U.tPend.chat;U.tt='chat'}return _jo(d)};
-A.tutorAsk=async()=>{
-  const q=$('#tq')?$('#tq').value.trim():'';if(U.tPend)return;
+A.tutorAsk=async(d)=>{
+  const q=(d&&d.q)||($('#tq')?$('#tq').value.trim():'');if(U.tPend)return;
   if(!q&&!TIMG)return toast('Type a question or attach an image','err');
   if(!D.prof.key)return toast('Add an API key in Settings first','err');
   tMig();
@@ -1518,14 +1518,14 @@ A.tutorAsk=async()=>{
   const hist=tMsgs(cid).slice(-6).flatMap(t=>[{role:'user',parts:[{text:t.q||'(image question)'}]},{role:'model',parts:[{text:(t.a||'').slice(0,2500)}]}]);
   U.tPend={q,img:!!img,chat:cid};TIMG='';CUR=new AbortController();const ctl=CUR;refresh();tBottom();
   JOB.tutor={kind:'tutor',label:AIN+' is answering…',state:'run',home:'tutor',ctl};pill();
-  const sys=solSys(U.lang)+`\n\nIDENTITY: Your name is ${AIN}. You are Samarth’s personal JEE study mentor inside his Mission IIT 2028 app. If asked who you are, say you are ${AIN}. Remember this chat’s earlier messages and build on them.`;
+  const sys=solSys(U.lang)+`\n\nIDENTITY: Your name is ${AIN}. You are Samarth’s personal JEE study mentor inside his Mission IIT 2028 app. If asked who you are, say you are ${AIN}. Remember this chat’s earlier messages and build on them.`+(D.prof.hintMode?window.HINT_RULE:'');
   try{
     const a=await tutGen([...hist,{role:'user',parts}],sys,ctl.signal,q,!!ip);
     const c=tChat(cid),first=!tMsgs(cid).length;
     D.tutor.push({id:uid(),q,a,at:today(),ts:Date.now(),img:!!img,subj:'',chap:'',starred:false,tags:[],chat:cid});
     if(c){if(first)c.title=tTitle(q);c.upd=Date.now()}
     U.tPend=null;delete JOB.tutor;save();
-    if(S.screen==='tutor'){refresh();if(U.tChat===cid)tBottom()}
+    if(S.screen==='tutor'){refresh();if(U.tChat===cid)tBottom();if(D.prof.voiceMode&&window.TTS)window.TTS.speak(a)}
     else{JOB.tutor={kind:'tutor',label:AIN+' answer ready',state:'done',open:()=>{U.tChat=cid;U.tt='chat';go('tutor')}};toast('✅ '+AIN+' answer ready');notify(AIN,'Your answer is ready')}
     pill();
   }catch(e){
@@ -2184,6 +2184,151 @@ R.settings=function(){const h=_settings(),mk='<div class="card"><b>💾 Backup s
 
 /* ---- start: only load the SDK on launch if this phone was signed in before ---- */
 setTimeout(()=>{if(cfgOk()&&lm().signedIn)boot().catch(()=>{})},2500);
+})();
+</script>
+<script type="text/plain" class="app-src">
+/* ===== v5: Samarth’s AI voice + hint ladder · Smart daily plan · Share cards ===== */
+(function(){
+/* ---------- Hint ladder ---------- */
+window.HINT_RULE='\n\nHINT LADDER MODE (IMPORTANT): The student wants to learn to think, not to copy. NEVER give the full solution or the final answer unless the student’s message is exactly "✅ Full solution". For a new doubt give ONLY "💡 Hint 1/3": one small nudge (which concept, law or first step to think about) in 2–3 short lines, then end by telling the student to try and press Next hint. If the message is exactly "💡 Next hint": give the next hint (Hint 2/3 is more specific; Hint 3/3 gives almost the whole method but still NOT the final answer). If the message is exactly "✅ Full solution": give the complete step-by-step solution. If the student sends their own attempt or answer, check it, give short feedback, and the next hint. Keep hints short.';
+window.hintRow=(all,busy)=>{
+  if(!D.prof.hintMode||!all.length||busy)return'';
+  const last=all[all.length-1];if(last.q==='✅ Full solution')return'';
+  return`<div class="row wr mt8" style="gap:8px;justify-content:center"><button class="btn sm" data-a="tutorAsk" data-q="💡 Next hint">💡 Next hint</button><button class="btn sec sm" data-a="tutorAsk" data-q="✅ Full solution">✅ Full solution</button></div>`;
+};
+A.tHintMode=()=>{D.prof.hintMode=!D.prof.hintMode;save();refresh();toast(D.prof.hintMode?'🪜 Hint mode ON — pehle hints milenge, solution baad me':'Hint mode OFF — seedha solution milega')};
+A.tVoiceMode=()=>{D.prof.voiceMode=!D.prof.voiceMode;save();refresh();toast(D.prof.voiceMode?'🎙 Voice mode ON — mic dabake bolo, jawab sunayi dega':'Voice mode OFF')};
+
+/* ---------- Text-to-speech (read answers aloud) ---------- */
+const clean=t=>String(t||'').replace(/```[\s\S]*?```/g,' ').replace(/\$\$[\s\S]*?\$\$/g,' formula ').replace(/\\\([\s\S]*?\\\)/g,' formula ').replace(/\$[^$\n]{1,80}\$/g,' formula ').replace(/\[(.*?)\]\(.*?\)/g,'$1').replace(/<[^>]+>/g,' ').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,' ').replace(/[#*_>`~|]/g,' ').replace(/\s+/g,' ').trim();
+const pieces=s=>{const out=[];(s.split(/(?<=[.!?।])\s+/)).forEach(x=>{while(x.length>170){let i=x.lastIndexOf(' ',170);if(i<40)i=170;out.push(x.slice(0,i));x=x.slice(i).trim()}if(x)out.push(x)});return out};
+const TTS=window.TTS={playing:null,btn:null,
+  stop(){try{window.speechSynthesis&&speechSynthesis.cancel()}catch(e){}TTS.playing=null;if(TTS.btn){TTS.btn.textContent='🔊 Listen';TTS.btn=null}},
+  speak(text,id,btn){
+    if(!window.speechSynthesis)return toast('Is browser me voice output nahi hai','err');
+    TTS.stop();const parts=pieces(clean(text));if(!parts.length)return;
+    TTS.playing=id||'x';if(btn){TTS.btn=btn;btn.textContent='⏹ Stop'}
+    const lang=U.lang==='English'?'en-IN':'hi-IN',vs=speechSynthesis.getVoices(),v=vs.find(x=>x.lang===lang)||vs.find(x=>x.lang&&x.lang.slice(0,2)===lang.slice(0,2));
+    parts.forEach((p,i)=>{const u=new SpeechSynthesisUtterance(p);u.lang=lang;if(v)u.voice=v;u.rate=lang==='hi-IN'?.95:1;if(i===parts.length-1)u.onend=u.onerror=()=>{if(TTS.playing===(id||'x'))TTS.stop()};speechSynthesis.speak(u)});
+  }};
+A.tSpeak=(d,el)=>{const t=D.tutor.find(x=>x.id===d.id);if(!t)return;if(TTS.playing===d.id){TTS.stop();return}TTS.speak(t.a,d.id,el)};
+const _tutBub=tutBub;
+tutBub=function(t){return _tutBub(t).replace('<button class="btn sec sm" data-a="copyRaw"',`<button class="btn sec sm" data-a="tSpeak" data-id="${t.id}">🔊 Listen</button><button class="btn sec sm" data-a="copyRaw"`)};
+const _g=go;go=function(s){if(s!=='tutor')TTS.stop();return _g.apply(this,arguments)};
+
+/* ---------- Speech-to-text (ask by speaking) ---------- */
+const micUI=on=>{const b=$('#tMic');if(b){b.textContent=on?'⏹':'🎤';b.style.background=on?'var(--bad)':'';b.style.color=on?'#fff':''}};
+A.tMic=()=>{
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return toast('Is browser me voice input nahi chalta — Chrome use karo','err');
+  if(U.tRec){try{U.tRec.stop()}catch(e){}return}
+  TTS.stop();
+  const r=new SR();r.lang=U.lang==='English'?'en-IN':'hi-IN';r.interimResults=true;r.continuous=false;r.maxAlternatives=1;
+  const ta=$('#tq'),base=ta?ta.value:'';let fin='';
+  r.onresult=e=>{let it='';for(let i=e.resultIndex;i<e.results.length;i++){const tr=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=tr+' ';else it+=tr}const t=$('#tq');if(t)t.value=(base?base+' ':'')+fin+it};
+  r.onerror=e=>{U.tRec=null;micUI(false);toast(e.error==='not-allowed'||e.error==='service-not-allowed'?'Mic permission allow karo':e.error==='no-speech'?'Awaaz nahi aayi — dobara bolo':'Voice error: '+e.error,'err')};
+  r.onend=()=>{U.tRec=null;micUI(false);const t=$('#tq');if(D.prof.voiceMode&&t&&t.value.trim()&&!U.tPend)A.tutorAsk({})};
+  U.tRec=r;micUI(true);try{r.start()}catch(e){U.tRec=null;micUI(false)}
+};
+
+/* ---------- Smart daily plan (instant, uses your own data — no AI call) ---------- */
+const PRI={High:0,Medium:1,Low:2};
+const addDays=(k,n)=>{const d=new Date(k+'T00:00:00');d.setDate(d.getDate()+n);return dstr(d)};
+function buildPlan(day,hours){
+  const t=today(),pd=day==='tomorrow'?addDays(t,1):t,budget=Math.round(hours*60);
+  const already=D.tasks.filter(x=>x.date===pd&&!x.done),aMin=sum(already,x=>num(x.minutes||x.est)||30);
+  const items=[],used=new Set(),push=o=>{const k=o.kind+'|'+o.title;if(used.has(k))return;used.add(k);items.push(o)};
+  D.revs.filter(r=>!r.done&&(r.date||'')<=pd).sort((a,b)=>String(a.date).localeCompare(String(b.date))).slice(0,4).forEach(r=>push({kind:'Revision',subj:r.subj,minutes:20,title:'Revise: '+chapName(r.chap)+(r.topic?' — '+r.topic:''),why:'Spaced revision due ('+r.date+')',pri:0}));
+  D.backlog.filter(b=>b.status!=='Done').sort((a,b)=>(PRI[a.prio]??1)-(PRI[b.prio]??1)||String(a.target||'9').localeCompare(String(b.target||'9'))).slice(0,3).forEach(b=>push({kind:'Backlog',subj:b.subj,minutes:Math.max(30,Math.min(90,num(b.est)||45)),title:'Clear backlog: '+chapName(b.chap)+(b.type?' ('+b.type+')':''),why:(b.prio||'Medium')+' priority backlog',pri:1}));
+  const ec={};D.errors.filter(e=>e.status!=='Mastered'&&e.chap).forEach(e=>{const o=ec[e.chap]=ec[e.chap]||{n:0,s:e.subj};o.n++});
+  Object.entries(ec).sort((a,b)=>b[1].n-a[1].n).slice(0,2).forEach(([k,v])=>push({kind:'Mistakes',subj:v.s,minutes:30,title:'Retest mistakes: '+chapName(k),why:v.n+' open mistake'+(v.n>1?'s':'')+' in Error Book',pri:2}));
+  let weak=[];try{weak=weakMetrics().filter(x=>x.accuracy!=null&&x.rank==='Weak').sort((a,b)=>a.accuracy-b.accuracy).slice(0,3)}catch(e){}
+  weak.forEach(w=>push({kind:'Practice',subj:w.subj,minutes:45,title:'Practice 20 questions: '+w.name,why:'Weak chapter — accuracy '+w.accuracy+'%',pri:3}));
+  SUBJ.forEach(s=>{if(!items.some(x=>x.subj===s))push({kind:'Practice',subj:s,minutes:40,title:s+': DPP / PYQ set',why:'Keep '+s+' in rotation today',pri:4})});
+  let left=Math.max(30,budget-aMin);const pick=[];
+  items.sort((a,b)=>a.pri-b.pri).forEach(x=>{if(x.minutes<=left){pick.push(x);left-=x.minutes}else if(left>=20){const m=Math.floor(left/5)*5;if(m>=20){pick.push(Object.assign({},x,{minutes:m}));left-=m}}});
+  const out=[],rest=pick.slice();let last='';
+  while(rest.length){let i=rest.findIndex(x=>x.subj!==last);if(i<0)i=0;const x=rest.splice(i,1)[0];out.push(x);last=x.subj}
+  if(left>=10)out.push({kind:'Review',subj:'Other',minutes:Math.min(15,left),title:'Daily review + plan tomorrow',why:'Close the day: what went well, what slipped',pri:9});
+  return{pd,items:out,already,aMin,total:sum(out,x=>x.minutes)};
+}
+const fmtM=m=>m>=60?Math.floor(m/60)+'h'+(m%60?' '+m%60+'m':''):m+'m';
+const spBody=()=>{
+  const sp=window._sp,p=buildPlan(sp.day,sp.hours);
+  return`<div class="sub">Tumhare backlog, revision, Error Book aur weak chapters se banaya gaya plan. AI call nahi lagti, turant banta hai.</div>
+  <div class="mt8">${segs('sp_day',[['today','Aaj'],['tomorrow','Kal']],sp.day)}</div>
+  <label class="l">Kitne ghante padhoge</label><select data-c="spHours">${[3,4,5,6,8,10,12].map(h=>`<option value="${h}" ${h===sp.hours?'selected':''}>${h} hours</option>`).join('')}</select>
+  <div class="sub mt8">📅 ${fd(p.pd)}${p.already.length?` · pehle se ${p.already.length} task (${fmtM(p.aMin)}) planned hain`:''}</div>
+  ${p.items.length?p.items.map((x,i)=>`<div class="card" style="padding:11px;border-left:4px solid ${sc(x.subj)}"><div class="row sp" style="gap:8px;align-items:flex-start"><div style="min-width:0"><b style="overflow-wrap:anywhere">${i+1}. ${esc(x.title)}</b><div class="sub">${esc(x.why)}</div></div><span class="chip acc" style="flex:none">${fmtM(x.minutes)}</span></div></div>`).join('')+`<div class="sub" style="text-align:center">Total ${fmtM(p.total)}${p.aMin?' + '+fmtM(p.aMin)+' already planned':''} · beech me 10 min ka break lena</div><button class="btn blk mt8" data-a="spAdd">➕ To-Do me add karo (${fd(p.pd)})</button>`:'<div class="empty"><b>Plan banane ke liye data kam hai</b><p>Backlog, mistakes ya tests add karo, phir yahan plan milega.</p></div>'}`;
+};
+const spRender=()=>{const o=ovl.find(x=>x.sp);if(o&&o.el){const b=o.el.querySelector('.sh-b');if(b)b.innerHTML=spBody()}};
+A.smartPlan=()=>{const h=new Date().getHours();window._sp={day:(h>=21||h<3)?'tomorrow':'today',hours:num(D.prof.planHours)||6};sheet('🧠 Smart plan',spBody(),{full:true});const o=ovl[ovl.length-1];if(o)o.sp=1};
+const _st5=A.setTab;A.setTab=(d,el)=>{if(d.k==='sp_day'){window._sp.day=d.v;spRender();return}return _st5(d,el)};
+C.spHours=(d,el)=>{window._sp.hours=num(el.value)||6;D.prof.planHours=window._sp.hours;save();spRender()};
+A.spAdd=()=>{
+  const p=buildPlan(window._sp.day,window._sp.hours);let n=0;
+  p.items.forEach(x=>{if(D.tasks.some(t=>t.date===p.pd&&t.title===x.title))return;D.tasks.push({id:uid(),title:x.title,text:x.title,subj:SUBJ.includes(x.subj)?x.subj:'Other',date:p.pd,prio:x.pri<=2?'High':'Medium',done:false,est:x.minutes,minutes:x.minutes,source:'smart-plan'});n++});
+  save();closeOv();U.tf=p.pd===today()?'today':'upcoming';go('todo');toast(n?n+' tasks add ho gaye ✅':'Ye tasks pehle se add hain');
+};
+const _todo=R.todo;
+R.todo=function(){return _todo().replace('<button class="btn" data-a="addTask">＋ Add Task</button>','<div class="row" style="gap:6px"><button class="btn sec" data-a="smartPlan">🧠 Plan</button><button class="btn" data-a="addTask">＋ Add</button></div>')};
+
+/* ---------- Share cards (image for WhatsApp / Instagram) ---------- */
+const APP_URL='samjam7766-sketch.github.io/MISSION-IIT-2.0';
+const FONT='"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+function weekStats(){
+  const t=today(),days=Array.from({length:7},(_,i)=>addDays(t,-i)),hs={Physics:0,Chemistry:0,Maths:0};let qs=0;
+  days.forEach(k=>{const r=D.prog[k];if(!r)return;hs.Physics+=num(r.p);hs.Chemistry+=num(r.c);hs.Maths+=num(r.m);qs+=qsn(r)});
+  const done=D.tasks.filter(x=>x.done&&days.includes(x.doneOn||x.date)).length,cleared=sum(D.tests.filter(x=>x.retest&&days.includes(x.date)),x=>num(x.retest.removed));
+  return{hs,total:hs.Physics+hs.Chemistry+hs.Maths,qs,done,cleared,streak:streak()};
+}
+function drawCard(kind,m){
+  const W=1080,H=1350,cv=document.createElement('canvas');cv.width=W;cv.height=H;const c=cv.getContext('2d');
+  const g=c.createLinearGradient(0,0,W,H);g.addColorStop(0,'#0f1115');g.addColorStop(1,'#3b1f8f');c.fillStyle=g;c.fillRect(0,0,W,H);
+  c.fillStyle='rgba(255,255,255,.05)';c.beginPath();c.arc(W-120,160,260,0,7);c.fill();c.beginPath();c.arc(120,H-200,300,0,7);c.fill();
+  c.textBaseline='alphabetic';c.fillStyle='#fff';c.font='800 46px '+FONT;c.fillText('Mission IIT 2028',70,120);
+  c.font='500 30px '+FONT;c.fillStyle='rgba(255,255,255,.7)';c.fillText((D.prof.name||'JEE Aspirant')+' · JEE 2028',70,170);
+  const bars=(rows,y0,fmtv,maxv)=>{rows.forEach((r,i)=>{const y=y0+i*130;c.font='700 34px '+FONT;c.fillStyle='#fff';c.textAlign='left';c.fillText(r.l,70,y);c.textAlign='right';c.fillText(fmtv(r.v),W-70,y);c.textAlign='left';
+    rr(c,70,y+22,W-140,26,13);c.fillStyle='rgba(255,255,255,.14)';c.fill();const w=Math.max(0,Math.min(1,r.v/maxv))*(W-140);if(w>0){rr(c,70,y+22,Math.max(26,w),26,13);c.fillStyle=r.c;c.fill()}})};
+  if(kind==='week'){
+    const s=weekStats();
+    c.fillStyle='rgba(255,255,255,.7)';c.font='600 36px '+FONT;c.fillText('MY WEEK',70,330);
+    c.fillStyle='#fff';c.font='800 190px '+FONT;c.fillText(String(Math.round(s.total*10)/10),70,520);c.font='700 54px '+FONT;c.fillText('hours studied',70,590);
+    bars(SUBJ.map(x=>({l:x,v:s.hs[x],c:sc(x)})),720,v=>(Math.round(v*10)/10)+' h',Math.max(1,...Object.values(s.hs)));
+    [['🔥',s.streak+'-day streak'],['✅',s.done+' tasks done'],['❓',s.qs+' questions'],['🧹',s.cleared+' mistakes cleared']].forEach((x,i)=>{const bx=70+(i%2)*470,by=1130+Math.floor(i/2)*90;c.font='700 36px '+FONT;c.fillStyle='#fff';c.fillText(x[0]+' '+x[1],bx,by)});
+  }else{
+    const tot=mTot(m),mx=num(m.max)||300,p=Math.round(tot/mx*100),per=mx/3;
+    c.fillStyle='rgba(255,255,255,.7)';c.font='600 34px '+FONT;c.fillText(String(m.name||'Mock test').slice(0,34).toUpperCase(),70,330);
+    c.fillStyle='#fff';c.font='800 210px '+FONT;c.fillText(String(tot),70,540);const tw=c.measureText(String(tot)).width;c.font='700 70px '+FONT;c.fillStyle='rgba(255,255,255,.75)';c.fillText('/ '+mx,70+tw+20,540);
+    c.font='700 46px '+FONT;c.fillStyle='#fff';c.fillText(p+'%  ·  '+(m.kind||'Mock')+' · '+fd(m.date),70,615);
+    bars(SUBJ.map(x=>({l:x,v:num(m[SK[x]]),c:sc(x)})),740,v=>String(v),Math.max(1,per));
+    const prev=D.mocks.filter(x=>x.id!==m.id&&x.kind===m.kind&&String(x.date)<=String(m.date)).sort((a,b)=>String(a.date).localeCompare(String(b.date))).pop();
+    c.font='700 40px '+FONT;
+    if(prev){const d=p-Math.round(mTot(prev)/(num(prev.max)||300)*100);c.fillStyle=d>=0?'#34d399':'#f87171';c.fillText((d>=0?'▲ +':'▼ ')+d+' points vs last mock',70,1170)}
+    c.fillStyle='rgba(255,255,255,.8)';c.font='500 30px '+FONT;try{c.fillText(String(mockRankEstimate(m)).slice(0,62),70,1230)}catch(e){}
+  }
+  c.fillStyle='rgba(255,255,255,.55)';c.font='600 30px '+FONT;c.textAlign='left';c.fillText('Track yours free → '+APP_URL,70,H-60);
+  return cv;
+}
+function cardSheet(kind,m){
+  const cv=drawCard(kind,m),url=cv.toDataURL('image/png');window._card={cv,kind};
+  sheet('📤 Share card',`<img src="${url}" alt="card" style="width:100%;border-radius:14px;display:block"><div class="row wr mt8" style="gap:8px"><button class="btn" style="flex:1" data-a="cardShare">📤 Share</button><button class="btn sec" style="flex:1" data-a="cardSave">⬇ Save image</button></div><div class="sub mt8">Story ya WhatsApp status me daalo — app ka link card ke neeche likha hai.</div>`,{full:true});
+}
+const cardBlob=()=>new Promise(r=>window._card.cv.toBlob(r,'image/png'));
+A.cardShare=async()=>{
+  try{const b=await cardBlob(),f=new File([b],'mission-iit-card.png',{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],text:'Mission IIT 2028 — '+APP_URL});return}
+    A.cardSave();
+  }catch(e){if(e&&e.name!=='AbortError')A.cardSave()}
+};
+A.cardSave=async()=>{const b=await cardBlob(),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='mission-iit-card.png';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast('Image save ho gayi')};
+A.shareWeek=()=>cardSheet('week');
+A.shareMock=()=>{const k=tab('mk','JEE Main'),a=D.mocks.filter(m=>m.kind===k).sort((x,y)=>String(x.date).localeCompare(String(y.date))),m=a[a.length-1];if(!m)return toast('Pehle ek mock add karo','err');cardSheet('mock',m)};
+const _mk5=R.mocks;
+R.mocks=function(){const h=_mk5(),k=tab('mk','JEE Main');if(!D.mocks.some(m=>m.kind===k))return h;return h.replace('<div class="card">','<button class="btn sec blk" data-a="shareMock" style="margin-bottom:10px">📤 Share latest score card</button><div class="card">')};
+const _dl5=R.daily;
+R.daily=function(){return _dl5().replace('<div class="card">','<button class="btn sec blk" data-a="shareWeek" style="margin-bottom:10px">📤 Share my week card</button><div class="card">')};
 })();
 </script>
 <script>
